@@ -1,0 +1,200 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>File Browser</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" integrity="sha384-tViUnnbYAV00FLIhhi3v/dWt3Jxw4gZQcNoSCxCIFNJVCx7/D55/wXsrNIRANwdD" crossorigin="anonymous">
+    <script>
+        window.addEventListener("load", async (event) => {
+            const form = document.getElementById("uploadFile");
+            form.addEventListener("submit", uploadFile);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentDirectory = urlParams.get('currentDirectory');
+
+            await updateTable(currentDirectory);
+        });
+
+        async function uploadFile(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+
+            try {
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                bootstrap.Modal.getInstance(document.getElementById("uploadModal")).hide();
+                await updateTable(document.getElementById('currentDirectory').value);
+                showSuccessAlert();
+            } catch (error) {
+                showErrorAlert();
+                console.error('Error:', error);
+            }
+        }
+
+        async function getData(currentDirectory) {
+            let url = "/Test";
+            try {
+                if (currentDirectory) {
+                    // There's probably a better way to do this, but I've never built a url state manager so I just tried to get it working.
+                    let queryParams = `?currentDirectory=${currentDirectory}`;
+                    url += queryParams;
+                    window.history.pushState({}, "", queryParams);
+                }
+
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Response status: ${response.status}`);
+                }
+
+                return await response.json();
+
+            } catch (error) {
+                showErrorAlert();
+                console.error(error.message);
+            }
+        }
+
+        function showErrorAlert() {
+            const alert = document.getElementById('alert');
+
+            // For real error handling you'd want to display a useful message, but just show a generic error for now.
+            alert.innerHTML = `
+                <div id="errorAlert" class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <strong>Error!</strong> A problem has occurred. Please try again.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                `;
+        }
+
+        function showSuccessAlert() {
+            const alert = document.getElementById('alert');
+
+            // For real success handling you'd want to display a useful message, but just show a generic error for now.
+            alert.innerHTML = `
+                <div id="successAlert" class="alert alert-success alert-dismissible fade show" role="alert">
+                    <strong>Succes!</strong> Your file was uploaded successfully.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                `;
+        }
+
+        async function updateTable(currentDirectory) {
+            const results = await getData(currentDirectory);
+
+            const table = document.getElementById('results');
+
+            table.removeChild(table.getElementsByTagName("tbody")[0]);
+
+            let tbody = table.createTBody();
+            let html = "";
+
+            if (currentDirectory) {
+                const currentDirectoryInput = document.getElementById('currentDirectory');
+                currentDirectoryInput.value = currentDirectory;
+
+                const previousDirectories = currentDirectory.split('/');
+                previousDirectories.pop();
+
+                let backLink = "index.html";
+                const backDirectories = previousDirectories.join('/');
+
+                if (backDirectories) {
+                    backLink = `${backLink}?currentDirectory=${backDirectories}`;
+                }
+
+                html += `
+                        <tr>
+                            <td colspan=3>
+                                <i class="bi bi-arrow-90deg-up"></i>
+                                <a href='${backLink}' onclick='updateTable("${backDirectories}");'>Back</a>
+                            </td>
+                        </tr>
+                    `;
+            }
+
+            for (const result of results.Directories) {
+                html += `
+                        <tr>
+                            <td colspan=3>
+                                <i class="bi bi-folder"></i>
+                                <a href="index.html?currentDirectory=${result.Url}">${result.Name}</a>
+                            </td>
+                        </tr>
+                    `
+            }
+
+            for (const result of results.Files) {
+                html += `
+                        <tr>
+                            <td>
+                                <i class="bi bi-file-earmark"></i>
+                                <a href="${result.Url}" download="${result.Name}">${result.Name}</a>
+                            </td>
+                            <td colspan=2>${formatBytes(result.Length)}</td>
+                        </tr>
+                    `
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        // Borrowed from https://gist.github.com/zentala/1e6f72438796d74531803cc3833c039c
+        function formatBytes(bytes, decimals) {
+            if (bytes == 0) return '0 Bytes';
+            var k = 1024,
+                dm = decimals || 2,
+                sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
+                i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+    </script>
+</head>
+<body>
+    <h1>File Browser</h1>
+    <div id="alert"></div>
+    <table id="results" class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Length</th>
+                <th>
+                    <button data-bs-toggle="modal" data-bs-target="#uploadModal" class="btn btn-primary">
+                        Upload File
+                    </button>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+    <div class="modal fade" id="uploadModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Modal title</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form enctype="multipart/form-data" action="/Test/Upload" method="post" id="uploadFile">
+                    <input type="hidden" id="currentDirectory" name="currentDirectory" value="" />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="formFile" class="form-label">Upload a file</label>
+                            <input required class="form-control" type="file" name="file">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
+</body>
+</html>
