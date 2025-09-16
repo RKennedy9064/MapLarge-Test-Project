@@ -20,11 +20,13 @@ namespace TestProject {
             app.UseStaticFiles();
 
             var homeDirectory = app.Configuration["HomeDirectory"];
+
+            // This will only serve known file types. Files with unknown extensions won't be served by default. This can be fixed by
+            // implementing a custom provider.
             app.UseFileServer(new FileServerOptions
             {
                 FileProvider = new PhysicalFileProvider(homeDirectory ?? throw new ArgumentNullException(nameof(homeDirectory))),
                 RequestPath = "/files",
-                EnableDirectoryBrowsing = true
             });
             app.MapControllers();   
 

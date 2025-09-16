@@ -35,7 +35,7 @@
                     {
                         Name = fileInfo.Name,
                         Length = fileInfo.Length,
-                        Url = Path.Combine("files", Path.GetRelativePath(homeDirectory, fileInfo.FullName)),
+                        Url = Path.Combine("/files", Path.GetRelativePath(_configuration["HomeDirectory"]!, fileInfo.FullName)),
                     });
                 var directories = directoryInfo.EnumerateDirectories()
                     .OrderBy(fileInfo => fileInfo.Name)
